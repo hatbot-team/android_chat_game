@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                xmlns:tools="http://schemas.android.com/tools"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                tools:context=".MyActivity" >
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                  android:layout_width="fill_parent"
+                  android:layout_height="fill_parent"
+                  android:gravity="center"
+                  android:orientation="vertical"
+                  android:visibility="visible"
+                  android:id="@+id/startLayout">
+        <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/startGameButton"
+                android:onClick="startGame"
+                android:text="Начать игру!"/>
+    </LinearLayout>
+    <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:gravity="center"
+            android:visibility="invisible"
+            android:id="@+id/inGameLayout">
+        <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ответить"
+                android:id="@+id/sendUserAnswerButton"
+                android:onClick="sendUserAnswer"/>
+    </LinearLayout>
+    <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:gravity="center"
+            android:visibility="invisible"
+            android:id="@+id/loseGameLayout">
+        <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Еще раз!"
+                android:id="@+id/playAgainButton"
+                android:onClick="startGame"/>
+    </LinearLayout>
+    <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:id="@+id/continueGameLayout"
+            android:gravity="center"
+            android:visibility="invisible">
+        <Button
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Следующее слово"
+                android:id="@+id/continueGameButton"
+                android:onClick="continueGame"/>
+    </LinearLayout>
+
+</RelativeLayout>
