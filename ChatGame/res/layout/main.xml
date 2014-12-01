@@ -44,7 +44,7 @@
                 android:layout_height="wrap_content"
                 android:text="Еще раз!"
                 android:id="@+id/playAgainButton"
-                android:onClick="startGame"/>
+                android:onClick="restartGame"/>
     </LinearLayout>
     <LinearLayout
             android:orientation="vertical"
@@ -60,5 +60,11 @@
                 android:id="@+id/continueGameButton"
                 android:onClick="continueGame"/>
     </LinearLayout>
+    <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Score here"
+            android:id="@+id/scoreTextView" android:layout_gravity="center"
+            android:textSize="30dp" android:layout_alignParentBottom="true" android:layout_centerHorizontal="true"/>
 
 </RelativeLayout>
