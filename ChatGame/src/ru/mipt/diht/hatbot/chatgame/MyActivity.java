@@ -13,6 +13,7 @@ import android.speech.tts.TextToSpeech.OnInitListener;
 import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -21,8 +22,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,8 +37,24 @@ public class MyActivity extends Activity implements OnInitListener {
     private String correctWord = "";
     private String randomWord = "/random_word";
     private List<String> savedChat;
+    private int currentScore;
+    private String saveFile = "savefile.txt";
 
     //Override standard methods
+
+    protected void makeInvisible(int id)
+    {
+        //LinearLayout layout = (LinearLayout)findViewById(id);
+        //layout.setVisibility(View.INVISIBLE);
+        findViewById(id).setVisibility(View.INVISIBLE);
+    }
+
+    protected void makeVisible(int id)
+    {
+        //LinearLayout layout = (LinearLayout)findViewById(id);
+        //layout.setVisibility(View.VISIBLE);
+        findViewById(id).setVisibility(View.VISIBLE);
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -46,6 +62,8 @@ public class MyActivity extends Activity implements OnInitListener {
         setContentView(R.layout.main);
         savedChat = new ArrayList<String>();
         textToSpeech = new TextToSpeech(this, this);
+
+        makeInvisible(R.id.scoreTextView);
     }
 
     @Override
@@ -67,15 +85,57 @@ public class MyActivity extends Activity implements OnInitListener {
         super.onDestroy();
     }
 
+    private String getBestScore()
+    {
+        try
+        {
+            File file = new File(saveFile);
+            if (!file.exists())
+                return "0";
+            InputStream inputstream = openFileInput(saveFile);
+
+            if (inputstream != null) {
+                InputStreamReader isr = new InputStreamReader(inputstream);
+                BufferedReader reader = new BufferedReader(isr);
+                String str = reader.readLine();
+                inputstream.close();
+                return str;
+            }
+        } catch (Throwable t) {
+            Toast.makeText(getApplicationContext(),
+                    "Exception: " + t.toString(), Toast.LENGTH_LONG).show();
+        }
+        return "";
+    }
+
+    private void updateScore()
+    {
+        TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
+        scoreTextView.setVisibility(View.VISIBLE);
+        String bestScore = getBestScore();
+        if (Integer.parseInt(bestScore) < currentScore)
+            scoreTextView.setText("current: " + String.valueOf(currentScore) + " (new record!");
+        else scoreTextView.setText("current: " + String.valueOf(currentScore) + " best: " + bestScore);
+    }
+
     public void startGame(View v) {
         if (internetCheck()) {
-            //seems done
-            //TODO change layout to inGameLayout
-            LinearLayout inGameLayout = (LinearLayout)findViewById(R.id.inGameLayout);
-            inGameLayout.setVisibility(View.VISIBLE);
-            LinearLayout startLayout = (LinearLayout)findViewById(R.id.startLayout);
-            startLayout.setVisibility(View.INVISIBLE);
+            makeVisible(R.id.inGameLayout);
+            makeInvisible(R.id.startLayout);
+            makeVisible(R.id.scoreTextView);
+            currentScore = 0;
+
+            updateScore();
+
             (new TitleTask()).execute(host + randomWord);
+        }
+    }
+
+    public void restartGame(View v)
+    {
+        if (internetCheck()) {
+            makeInvisible(R.id.loseGameLayout);
+            startGame(v);
         }
     }
 
@@ -94,11 +154,8 @@ public class MyActivity extends Activity implements OnInitListener {
 
     public void continueGame(View v)     {
         if (internetCheck()) {
-            LinearLayout inGameLayout = (LinearLayout)findViewById(R.id.inGameLayout);
-            inGameLayout.setVisibility(View.VISIBLE);
-            LinearLayout continueGameLayout = (LinearLayout)findViewById(R.id.continueGameLayout);
-            continueGameLayout.setVisibility(View.INVISIBLE);
-            //TODO change layout to inGameLayout
+            makeVisible(R.id.inGameLayout);
+            makeInvisible(R.id.continueGameLayout);
             (new TitleTask()).execute(host + randomWord);
         }
     }
@@ -116,16 +173,30 @@ public class MyActivity extends Activity implements OnInitListener {
             }
             savedChat.add(answer);
             if (answer.compareTo(correctWord) == 0) {
-                LinearLayout continueGameLayout = (LinearLayout)findViewById(R.id.continueGameLayout);
-                continueGameLayout.setVisibility(View.VISIBLE);
-                LinearLayout inGameLayout = (LinearLayout)findViewById(R.id.inGameLayout);
-                inGameLayout.setVisibility(View.INVISIBLE);
-                //TODO users answer is correct - change layout to continueGameLayout
+                makeVisible(R.id.continueGameLayout);
+                makeInvisible(R.id.inGameLayout);
+                currentScore++;
+                updateScore();
             } else {
-                LinearLayout loseGameLayout = (LinearLayout)findViewById(R.id.loseGameLayout);
-                loseGameLayout.setVisibility(View.VISIBLE);
-                LinearLayout inGameLayout = (LinearLayout)findViewById(R.id.inGameLayout);
-                inGameLayout.setVisibility(View.INVISIBLE);
+                makeVisible(R.id.loseGameLayout);
+                makeInvisible(R.id.inGameLayout);
+
+                TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
+                scoreTextView.setText("final score: " + String.valueOf(currentScore));
+                String bestScore = getBestScore();
+                if (Integer.parseInt(bestScore) < currentScore)
+                {
+                    try
+                    {
+                        String toWrite = String.valueOf(currentScore);
+                        FileOutputStream fos = openFileOutput(saveFile, Context.MODE_PRIVATE);
+                        fos.write(toWrite.getBytes());
+                        fos.close();
+                    } catch (Throwable t) {
+                        Toast.makeText(getApplicationContext(),
+                                "Exception: " + t.toString(), Toast.LENGTH_LONG).show();
+                    }
+                }
                 //TODO users answer isn't correct - try to find 1 more explanation
                 //TODO if there is no more explanations for this word - change layout to loseGameLayout
             }
@@ -185,8 +256,7 @@ public class MyActivity extends Activity implements OnInitListener {
 
         @Override
         protected void onPostExecute(String result) {
-            //result = "{\"text\":\"english русский\"}";
-            Log.d("onPostExecute", "I am here");
+            //Log.d("onPostExecute", "I am here");
             try {
                 JSONObject json = new JSONObject(result);
                 savedChat.add(json.getString("text"));
