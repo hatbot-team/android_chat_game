@@ -40,21 +40,18 @@ public class MyActivity extends Activity implements OnInitListener {
     private int currentScore;
     private String saveFile = "savefile.txt";
 
-    //Override standard methods
 
     protected void makeInvisible(int id)
     {
-        //LinearLayout layout = (LinearLayout)findViewById(id);
-        //layout.setVisibility(View.INVISIBLE);
         findViewById(id).setVisibility(View.INVISIBLE);
     }
 
     protected void makeVisible(int id)
     {
-        //LinearLayout layout = (LinearLayout)findViewById(id);
-        //layout.setVisibility(View.VISIBLE);
         findViewById(id).setVisibility(View.VISIBLE);
     }
+
+    //Override standard methods
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -68,11 +65,12 @@ public class MyActivity extends Activity implements OnInitListener {
 
     @Override
     public void onInit(int code) {
+        final Context context = this;
         if (code == TextToSpeech.SUCCESS) {
             textToSpeech.setLanguage(new Locale("ru"));
         } else {
             textToSpeech = null;
-            Toast.makeText(this, "Failed", Toast.LENGTH_SHORT).show();
+            showToast("Text to speech failed", context);
         }
     }
 
@@ -87,13 +85,13 @@ public class MyActivity extends Activity implements OnInitListener {
 
     private String getBestScore()
     {
+        final Context context = this;
         try
         {
             File file = new File(saveFile);
             if (!file.exists())
                 return "0";
             InputStream inputstream = openFileInput(saveFile);
-
             if (inputstream != null) {
                 InputStreamReader isr = new InputStreamReader(inputstream);
                 BufferedReader reader = new BufferedReader(isr);
@@ -102,20 +100,20 @@ public class MyActivity extends Activity implements OnInitListener {
                 return str;
             }
         } catch (Throwable t) {
-            Toast.makeText(getApplicationContext(),
-                    "Exception: " + t.toString(), Toast.LENGTH_LONG).show();
+            showToast("Exception: " + t.toString(), context);
         }
         return "";
     }
 
-    private void updateScore()
-    {
-        TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
+    private void updateScore() {
+        TextView scoreTextView = (TextView) findViewById(R.id.scoreTextView);
         scoreTextView.setVisibility(View.VISIBLE);
         String bestScore = getBestScore();
-        if (Integer.parseInt(bestScore) < currentScore)
+        if (Integer.parseInt(bestScore) < currentScore) {
             scoreTextView.setText("current: " + String.valueOf(currentScore) + " (new record!");
-        else scoreTextView.setText("current: " + String.valueOf(currentScore) + " best: " + bestScore);
+        } else {
+            scoreTextView.setText("current: " + String.valueOf(currentScore) + " best: " + bestScore);
+        }
     }
 
     public void startGame(View v) {
@@ -124,9 +122,7 @@ public class MyActivity extends Activity implements OnInitListener {
             makeInvisible(R.id.startLayout);
             makeVisible(R.id.scoreTextView);
             currentScore = 0;
-
             updateScore();
-
             (new TitleTask()).execute(host + randomWord);
         }
     }
