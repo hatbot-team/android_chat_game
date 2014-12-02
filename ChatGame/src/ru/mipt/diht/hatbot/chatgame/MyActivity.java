@@ -19,14 +19,16 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.*;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class MyActivity extends Activity implements OnInitListener {
 
@@ -39,6 +41,8 @@ public class MyActivity extends Activity implements OnInitListener {
     private List<String> savedChat;
     private int currentScore;
     private String saveFile = "savefile.txt";
+    private int currentExplanation;
+    private List<String> explanationList;
 
 
     protected void makeInvisible(int id)
@@ -59,7 +63,7 @@ public class MyActivity extends Activity implements OnInitListener {
         setContentView(R.layout.main);
         savedChat = new ArrayList<String>();
         textToSpeech = new TextToSpeech(this, this);
-
+        explanationList = new ArrayList<String>();
         makeInvisible(R.id.scoreTextView);
     }
 
@@ -110,9 +114,9 @@ public class MyActivity extends Activity implements OnInitListener {
         scoreTextView.setVisibility(View.VISIBLE);
         String bestScore = getBestScore();
         if (Integer.parseInt(bestScore) < currentScore) {
-            scoreTextView.setText("current: " + String.valueOf(currentScore) + " (new record!");
+            scoreTextView.setText("Current: " + String.valueOf(currentScore) + " (new record!");
         } else {
-            scoreTextView.setText("current: " + String.valueOf(currentScore) + " best: " + bestScore);
+            scoreTextView.setText("Current: " + String.valueOf(currentScore) + " Best: " + bestScore);
         }
     }
 
@@ -124,6 +128,7 @@ public class MyActivity extends Activity implements OnInitListener {
             currentScore = 0;
             updateScore();
             (new TitleTask()).execute(host + randomWord);
+            giveNextExplanationToUser();
         }
     }
 
@@ -153,7 +158,21 @@ public class MyActivity extends Activity implements OnInitListener {
             makeVisible(R.id.inGameLayout);
             makeInvisible(R.id.continueGameLayout);
             (new TitleTask()).execute(host + randomWord);
+            giveNextExplanationToUser();
         }
+    }
+
+    private void sayText(String text) {
+        if (textToSpeech != null) {
+            textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null);
+        }
+    }
+
+    private boolean giveNextExplanationToUser() {
+        currentExplanation++;
+        savedChat.add(explanationList.get(currentExplanation));
+        sayText(explanationList.get(currentExplanation));
+        return true;
     }
 
     //Override method for google speech to text, it works when user says something
@@ -161,6 +180,7 @@ public class MyActivity extends Activity implements OnInitListener {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        final Context context = this;
         if (requestCode==REQUEST_OK  && resultCode==RESULT_OK) {
             ArrayList<String> userAnswers = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String answer = "";
@@ -169,32 +189,35 @@ public class MyActivity extends Activity implements OnInitListener {
             }
             savedChat.add(answer);
             if (answer.compareTo(correctWord) == 0) {
+                sayText("Вы угадали!");
                 makeVisible(R.id.continueGameLayout);
                 makeInvisible(R.id.inGameLayout);
                 currentScore++;
                 updateScore();
             } else {
-                makeVisible(R.id.loseGameLayout);
-                makeInvisible(R.id.inGameLayout);
-
-                TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
-                scoreTextView.setText("final score: " + String.valueOf(currentScore));
-                String bestScore = getBestScore();
-                if (Integer.parseInt(bestScore) < currentScore)
-                {
-                    try
-                    {
-                        String toWrite = String.valueOf(currentScore);
-                        FileOutputStream fos = openFileOutput(saveFile, Context.MODE_PRIVATE);
-                        fos.write(toWrite.getBytes());
-                        fos.close();
-                    } catch (Throwable t) {
-                        Toast.makeText(getApplicationContext(),
-                                "Exception: " + t.toString(), Toast.LENGTH_LONG).show();
+                if (currentExplanation >= explanationList.size() - 1) {
+                    makeVisible(R.id.loseGameLayout);
+                    makeInvisible(R.id.inGameLayout);
+                    TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
+                    scoreTextView.setText("final score: " + String.valueOf(currentScore));
+                    String bestScore = getBestScore();
+                    if (Integer.parseInt(bestScore) < currentScore) {
+                        sayText("Новый рекорд!");
+                        try {
+                            String toWrite = String.valueOf(currentScore);
+                            FileOutputStream fos = openFileOutput(saveFile, Context.MODE_PRIVATE);
+                            fos.write(toWrite.getBytes());
+                            fos.close();
+                        } catch (Throwable t) {
+                            showToast("Exception: " + t.toString(), context);
+                        }
+                    } else {
+                        sayText("Игра окончена.");
                     }
+                } else {
+                    sayText("Неверный ответ. Прослушайте другое объяснение.");
+                    giveNextExplanationToUser();
                 }
-                //TODO users answer isn't correct - try to find 1 more explanation
-                //TODO if there is no more explanations for this word - change layout to loseGameLayout
             }
         }
     }
@@ -224,7 +247,7 @@ public class MyActivity extends Activity implements OnInitListener {
         @Override
         protected void onPostExecute(String result) {
             correctWord = result;
-            (new DefinitionTask()).execute(host + "/explain?word=" + result);
+            new DefinitionTask().execute(host + "/explain_list?word=" + result);
             super.onPostExecute(result);
         }
     }
@@ -252,15 +275,23 @@ public class MyActivity extends Activity implements OnInitListener {
 
         @Override
         protected void onPostExecute(String result) {
-            //Log.d("onPostExecute", "I am here");
             try {
-                JSONObject json = new JSONObject(result);
-                savedChat.add(json.getString("text"));
-                if (textToSpeech != null) {
-                    //if (!textToSpeech.isSpeaking()) {
-                        textToSpeech.speak(json.getString("text"), TextToSpeech.QUEUE_FLUSH, null);
-                    //}
+                List<String> jsons = new ArrayList<String>();
+                int l = 0, r = 0;
+                for (int i = 0; i < result.length(); i++) {
+                    if (result.charAt(i) == '{') {
+                        l = i;
+                    }
+                    if (result.charAt(i) == '}') {
+                        r = i;
+                        jsons.add(result.substring(l, r + 1));
+                    }
                 }
+                for (String json : jsons) {
+                    explanationList.add((new JSONObject(json)).getString("text"));
+                }
+                currentExplanation = -1;
+                //TODO parse json to list()
             } catch (JSONException e) {
                 e.printStackTrace();
             }
