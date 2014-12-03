@@ -127,7 +127,18 @@ public class MyActivity extends Activity implements OnInitListener {
             makeVisible(R.id.scoreTextView);
             currentScore = 0;
             updateScore();
-            (new TitleTask()).execute(host + randomWord);
+            try
+            {
+                TitleTask titleTask = new TitleTask();
+                Log.d("startGame", "startGame: before execute");
+                String titleTaskExecuteResult = titleTask.execute(host + randomWord).get();
+                titleTask.onPostExecute(titleTaskExecuteResult);
+                Log.d("startGame", "startGame: after execute explanationList size = " + explanationList.size());
+                Log.d("startGame", "startGame: after execute result = " + titleTaskExecuteResult);
+                //titleTask.get();
+            } catch (Throwable t) {
+                showToast("Exception startGame: " + t.toString(), this.getApplication());
+            }
             giveNextExplanationToUser();
         }
     }
@@ -144,6 +155,11 @@ public class MyActivity extends Activity implements OnInitListener {
         if (internetCheck()) {
             Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, new Locale("ru"));
+            //i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+            //      RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, new Locale("ru"));
+            i.putExtra(RecognizerIntent.EXTRA_PROMPT,
+                    "назовите слово");
             final Context context = this;
             try {
                 startActivityForResult(i, REQUEST_OK);
@@ -157,7 +173,13 @@ public class MyActivity extends Activity implements OnInitListener {
         if (internetCheck()) {
             makeVisible(R.id.inGameLayout);
             makeInvisible(R.id.continueGameLayout);
-            (new TitleTask()).execute(host + randomWord);
+            try
+            {
+                (new TitleTask()).execute(host + randomWord).get();
+            }
+            catch (Throwable t) {
+                showToast("Exception startGame: " + t.toString(), this.getApplication());
+            }
             giveNextExplanationToUser();
         }
     }
@@ -183,10 +205,8 @@ public class MyActivity extends Activity implements OnInitListener {
         final Context context = this;
         if (requestCode==REQUEST_OK  && resultCode==RESULT_OK) {
             ArrayList<String> userAnswers = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            String answer = "";
-            for (String token : userAnswers) {
-                answer += token;
-            }
+            String answer = userAnswers.get(0);
+            Log.d("onActivityResult", "answer = " + answer);
             savedChat.add(answer);
             if (answer.compareTo(correctWord) == 0) {
                 sayText("Вы угадали!");
@@ -199,7 +219,7 @@ public class MyActivity extends Activity implements OnInitListener {
                     makeVisible(R.id.loseGameLayout);
                     makeInvisible(R.id.inGameLayout);
                     TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
-                    scoreTextView.setText("final score: " + String.valueOf(currentScore));
+                    scoreTextView.setText("Итоговый результат: " + String.valueOf(currentScore));
                     String bestScore = getBestScore();
                     if (Integer.parseInt(bestScore) < currentScore) {
                         sayText("Новый рекорд!");
@@ -224,7 +244,7 @@ public class MyActivity extends Activity implements OnInitListener {
 
     //Get explanation with AsyncTask
 
-    private class TitleTask extends AsyncTask<String, Integer, String> {
+    private class TitleTask extends AsyncTask<String, String, String> {
 
         @Override
         protected String doInBackground(String... params) {
@@ -235,24 +255,37 @@ public class MyActivity extends Activity implements OnInitListener {
                 URI website = new URI(params[0]);
                 request.setURI(website);
                 HttpResponse response = httpclient.execute(request);
-
-                return new BufferedReader(new InputStreamReader(
+                Log.d("TitleTask", "before forming retValue");
+                String retValue = new BufferedReader(new InputStreamReader(
                         response.getEntity().getContent())).readLine();
+                Log.d("TitleTask", "after forming retValue = " + retValue);
+                return retValue;
             } catch (Exception e) {
-                Log.wtf("except", e);
+                Log.wtf("exception in TitleTask.doInBackground", e);
             }
             return null;
         }
 
         @Override
         protected void onPostExecute(String result) {
+
+            Log.d("TitleTask", "onPostExecute result = " + result);
             correctWord = result;
-            new DefinitionTask().execute(host + "/explain_list?word=" + result);
-            super.onPostExecute(result);
+            try
+            {
+                DefinitionTask definitionTask = new DefinitionTask();
+                String executeResult = definitionTask.execute(host + "/explain_list?word=" + result).get();
+                definitionTask.onPostExecute(executeResult);
+            }
+            catch (Throwable t) {
+                Log.wtf("TitleTask", "exception in TitleTask.onPostExecute: " + t);
+            }
+            //super.onPostExecute(result);
+            //do we really need to call super method?
         }
     }
 
-    private class DefinitionTask extends AsyncTask<String, Integer, String> {
+    private class DefinitionTask extends AsyncTask<String, String, String> {
 
         @Override
         protected String doInBackground(String... params) {
@@ -263,12 +296,13 @@ public class MyActivity extends Activity implements OnInitListener {
                 URI website = new URI(params[0]);
                 request.setURI(website);
                 HttpResponse response = httpclient.execute(request);
-                Log.d("DefinitionTask", response.toString());
-
-                return new BufferedReader(new InputStreamReader(
+                Log.d("DefinitionTask", "response = " + response.toString());
+                String retValue = new BufferedReader(new InputStreamReader(
                         response.getEntity().getContent())).readLine();
+                Log.d("DefinitionTask", "retValue = " + retValue);
+                return retValue;
             } catch (Exception e) {
-                Log.e("except", e.toString());
+                Log.e("DefinitionTask", "doInBackground exception" + e.toString());
             }
             return null;
         }
@@ -295,7 +329,8 @@ public class MyActivity extends Activity implements OnInitListener {
             } catch (JSONException e) {
                 e.printStackTrace();
             }
-            super.onPostExecute(result);
+            //super.onPostExecute(result);
+            //do we really need to call super method?
         }
 
     }
