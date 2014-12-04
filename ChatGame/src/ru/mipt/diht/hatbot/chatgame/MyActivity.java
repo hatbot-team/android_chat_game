@@ -92,9 +92,11 @@ public class MyActivity extends Activity implements OnInitListener {
         final Context context = this;
         try
         {
-            File file = new File(saveFile);
-            if (!file.exists())
-                return "0";
+            File file = new File(context.getFilesDir(), saveFile);
+            if (!file.exists()) {
+                if (!file.createNewFile())
+                    return "0";
+            }
             InputStream inputstream = openFileInput(saveFile);
             if (inputstream != null) {
                 InputStreamReader isr = new InputStreamReader(inputstream);
@@ -198,6 +200,7 @@ public class MyActivity extends Activity implements OnInitListener {
         if (internetCheck()) {
             makeVisible(R.id.inGameLayout);
             makeInvisible(R.id.continueGameLayout);
+            updateScore();
             titleTaskExecute();
             giveNextExplanationToUser();
         }
@@ -211,8 +214,9 @@ public class MyActivity extends Activity implements OnInitListener {
 
     private boolean giveNextExplanationToUser() {
         currentExplanation++;
-        savedChat.add(explanationList.get(currentExplanation));
-        sayText(explanationList.get(currentExplanation));
+        String explanation = explanationList.get(currentExplanation).replace("*", "");
+        savedChat.add(explanation);
+        sayText(explanation);
         return true;
     }
 
@@ -274,7 +278,7 @@ public class MyActivity extends Activity implements OnInitListener {
                     scoreTextView.setText("Итоговый результат: " + String.valueOf(currentScore));
                     String bestScore = getBestScore();
                     if (Integer.parseInt(bestScore) < currentScore) {
-                        sayText("Новый рекорд!");
+                        sayText("Новый рекорд! Загаданное слово - " + correctWord);
                         try {
                             String toWrite = String.valueOf(currentScore);
                             FileOutputStream fos = openFileOutput(saveFile, Context.MODE_PRIVATE);
@@ -284,7 +288,7 @@ public class MyActivity extends Activity implements OnInitListener {
                             showToast("Exception: " + t.toString(), context);
                         }
                     } else {
-                        sayText("Игра окончена.");
+                        sayText("Игра окончена. Загаданное слово - " + correctWord);
                     }
                 } else {
                     sayText("Неверный ответ. Прослушайте другое объяснение.");
