@@ -114,9 +114,9 @@ public class MyActivity extends Activity implements OnInitListener {
         scoreTextView.setVisibility(View.VISIBLE);
         String bestScore = getBestScore();
         if (Integer.parseInt(bestScore) < currentScore) {
-            scoreTextView.setText("Current: " + String.valueOf(currentScore) + " (new record!");
+            scoreTextView.setText("Счет: " + String.valueOf(currentScore) + " (новый рекорд!)");
         } else {
-            scoreTextView.setText("Current: " + String.valueOf(currentScore) + " Best: " + bestScore);
+            scoreTextView.setText("Счет: " + String.valueOf(currentScore) + " Рекорд: " + bestScore);
         }
     }
 
@@ -132,7 +132,7 @@ public class MyActivity extends Activity implements OnInitListener {
                 TitleTask titleTask = new TitleTask();
                 Log.d("startGame", "startGame: before execute");
                 String titleTaskExecuteResult = titleTask.execute(host + randomWord).get();
-                titleTask.onPostExecute(titleTaskExecuteResult);
+                titleTaskOnPostExecute(titleTaskExecuteResult);
                 Log.d("startGame", "startGame: after execute explanationList size = " + explanationList.size());
                 Log.d("startGame", "startGame: after execute result = " + titleTaskExecuteResult);
                 //titleTask.get();
@@ -169,17 +169,36 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
+    private void titleTaskExecute()
+    {
+        try
+        {
+            String result = (new TitleTask()).execute(host + randomWord).get();
+            titleTaskOnPostExecute(result);
+        }
+        catch (Throwable t) {
+            showToast("Exception startGame: " + t.toString(), this.getApplication());
+        }
+    }
+
+    private void definitionTaskExecute(String result)
+    {
+        try
+        {
+            DefinitionTask definitionTask = new DefinitionTask();
+            String executeResult = definitionTask.execute(host + "/explain_list?word=" + result).get();
+            definitionTaskOnPostExecute(executeResult);
+        }
+        catch (Throwable t) {
+            Log.wtf("TitleTask", "exception in TitleTask.onPostExecute: " + t);
+        }
+    }
+
     public void continueGame(View v)     {
         if (internetCheck()) {
             makeVisible(R.id.inGameLayout);
             makeInvisible(R.id.continueGameLayout);
-            try
-            {
-                (new TitleTask()).execute(host + randomWord).get();
-            }
-            catch (Throwable t) {
-                showToast("Exception startGame: " + t.toString(), this.getApplication());
-            }
+            titleTaskExecute();
             giveNextExplanationToUser();
         }
     }
@@ -199,22 +218,55 @@ public class MyActivity extends Activity implements OnInitListener {
 
     //Override method for google speech to text, it works when user says something
 
+    private int getEditDist(String userAnswer, String correctWord)
+    {
+        int dp[][] = new int[userAnswer.length()][correctWord.length()];
+        for (int i = 0; i < userAnswer.length(); i++)
+            for (int j = 0; j < correctWord.length(); j++)
+            {
+                if (userAnswer.charAt(i) == correctWord.charAt(j))
+                {
+                    if (i == 0)
+                        dp[i][j] = j;
+                    else if (j == 0)
+                        dp[i][j] = i;
+                    else dp[i][j] = dp[i - 1][j - 1];
+                }
+                else
+                {
+                    int changeI = (i - 1 >= 0 ? dp[i - 1][j] + 1 : j + 2);
+                    int changeJ = (j - 1 >= 0 ? dp[i][j - 1] + 1 : i + 2);
+                    dp[i][j] = Math.min(changeI, changeJ);
+                }
+            }
+        return dp[userAnswer.length() - 1][correctWord.length() - 1];
+    }
+
+    private boolean checkCorrect(String userAnswer, String correctWord)
+    {
+        int editDist = getEditDist(userAnswer, correctWord);
+        Log.d("checkCorrect", "userAnswer = " + userAnswer + " correctWord = " + correctWord + " editDist = " + editDist);
+        return (editDist <= Math.min(userAnswer.length(), correctWord.length()) / 3);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         final Context context = this;
         if (requestCode==REQUEST_OK  && resultCode==RESULT_OK) {
             ArrayList<String> userAnswers = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            String answer = userAnswers.get(0);
-            Log.d("onActivityResult", "answer = " + answer);
-            savedChat.add(answer);
-            if (answer.compareTo(correctWord) == 0) {
+            String userAnswer = userAnswers.get(0);
+            Log.d("onActivityResult", "userAnswer = " + userAnswer);
+            savedChat.add(userAnswer);
+            if (checkCorrect(userAnswer, correctWord)) {
+                Log.d("onActivityResult", "correct!");
                 sayText("Вы угадали!");
                 makeVisible(R.id.continueGameLayout);
                 makeInvisible(R.id.inGameLayout);
                 currentScore++;
                 updateScore();
             } else {
+                Log.d("onActivityResult", "wrong!");
                 if (currentExplanation >= explanationList.size() - 1) {
                     makeVisible(R.id.loseGameLayout);
                     makeInvisible(R.id.inGameLayout);
@@ -242,7 +294,40 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
-    //Get explanation with AsyncTask
+    private void titleTaskOnPostExecute(String result) {
+
+        Log.d("TitleTask", "onPostExecute result = " + result);
+        correctWord = result;
+        definitionTaskExecute(result);
+    }
+
+    private void definitionTaskOnPostExecute(String result) {
+        try {
+            explanationList.clear();
+            List<String> jsons = new ArrayList<String>();
+            int l = 0, r = 0;
+            for (int i = 0; i < result.length(); i++) {
+                if (result.charAt(i) == '{') {
+                    l = i;
+                }
+                if (result.charAt(i) == '}') {
+                    r = i;
+                    jsons.add(result.substring(l, r + 1));
+                }
+            }
+            for (String json : jsons) {
+                explanationList.add((new JSONObject(json)).getString("text"));
+            }
+            currentExplanation = -1;
+            Log.d("DefinitionTask", "onPostExecute explanationList size = " + explanationList.size());
+            for (int j = 0; j < explanationList.size(); j++)
+                Log.d("DefinitionTask", "explanationList[" + j + "] = " + explanationList.get(j));
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        //super.onPostExecute(result);
+        //do we really need to call super method?
+    }
 
     private class TitleTask extends AsyncTask<String, String, String> {
 
@@ -265,24 +350,6 @@ public class MyActivity extends Activity implements OnInitListener {
             }
             return null;
         }
-
-        @Override
-        protected void onPostExecute(String result) {
-
-            Log.d("TitleTask", "onPostExecute result = " + result);
-            correctWord = result;
-            try
-            {
-                DefinitionTask definitionTask = new DefinitionTask();
-                String executeResult = definitionTask.execute(host + "/explain_list?word=" + result).get();
-                definitionTask.onPostExecute(executeResult);
-            }
-            catch (Throwable t) {
-                Log.wtf("TitleTask", "exception in TitleTask.onPostExecute: " + t);
-            }
-            //super.onPostExecute(result);
-            //do we really need to call super method?
-        }
     }
 
     private class DefinitionTask extends AsyncTask<String, String, String> {
@@ -299,7 +366,7 @@ public class MyActivity extends Activity implements OnInitListener {
                 Log.d("DefinitionTask", "response = " + response.toString());
                 String retValue = new BufferedReader(new InputStreamReader(
                         response.getEntity().getContent())).readLine();
-                Log.d("DefinitionTask", "retValue = " + retValue);
+                //Log.d("DefinitionTask", "retValue = " + retValue);
                 return retValue;
             } catch (Exception e) {
                 Log.e("DefinitionTask", "doInBackground exception" + e.toString());
@@ -307,31 +374,7 @@ public class MyActivity extends Activity implements OnInitListener {
             return null;
         }
 
-        @Override
-        protected void onPostExecute(String result) {
-            try {
-                List<String> jsons = new ArrayList<String>();
-                int l = 0, r = 0;
-                for (int i = 0; i < result.length(); i++) {
-                    if (result.charAt(i) == '{') {
-                        l = i;
-                    }
-                    if (result.charAt(i) == '}') {
-                        r = i;
-                        jsons.add(result.substring(l, r + 1));
-                    }
-                }
-                for (String json : jsons) {
-                    explanationList.add((new JSONObject(json)).getString("text"));
-                }
-                currentExplanation = -1;
-                //TODO parse json to list()
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-            //super.onPostExecute(result);
-            //do we really need to call super method?
-        }
+
 
     }
 
