@@ -35,7 +35,7 @@ public class MyActivity extends Activity implements OnInitListener {
     protected static final int REQUEST_OK = 1;
 
     private TextToSpeech textToSpeech;
-    private String host = "http://hatbot.me";
+    private String host = "http://hatbot.me/api";
     private String correctWord = "";
     private String randomWord = "/random_word";
     private List<String> savedChat;
@@ -103,12 +103,16 @@ public class MyActivity extends Activity implements OnInitListener {
                 BufferedReader reader = new BufferedReader(isr);
                 String str = reader.readLine();
                 inputstream.close();
-                return str;
+                if (str != null) {
+                    return str;
+                } else {
+                    return "0";
+                }
             }
         } catch (Throwable t) {
             showToast("Exception: " + t.toString(), context);
         }
-        return "";
+        return "0";
     }
 
     private void updateScore() {
@@ -124,11 +128,6 @@ public class MyActivity extends Activity implements OnInitListener {
 
     public void startGame(View v) {
         if (internetCheck()) {
-            makeVisible(R.id.inGameLayout);
-            makeInvisible(R.id.startLayout);
-            makeVisible(R.id.scoreTextView);
-            currentScore = 0;
-            updateScore();
             try
             {
                 TitleTask titleTask = new TitleTask();
@@ -141,7 +140,16 @@ public class MyActivity extends Activity implements OnInitListener {
             } catch (Throwable t) {
                 showToast("Exception startGame: " + t.toString(), this.getApplication());
             }
-            giveNextExplanationToUser();
+            if (explanationList.size() == 0) {
+                showToast("Сервер недоступен", this.getApplication());
+            } else {
+                giveNextExplanationToUser();
+                makeVisible(R.id.inGameLayout);
+                makeInvisible(R.id.startLayout);
+                makeVisible(R.id.scoreTextView);
+                currentScore = 0;
+                updateScore();
+            }
         }
     }
 
@@ -262,6 +270,7 @@ public class MyActivity extends Activity implements OnInitListener {
             String userAnswer = userAnswers.get(0);
             Log.d("onActivityResult", "userAnswer = " + userAnswer);
             savedChat.add(userAnswer);
+            showToast("Ваш ответ : " + userAnswer, context);
             if (checkCorrect(userAnswer, correctWord)) {
                 Log.d("onActivityResult", "correct!");
                 sayText("Вы угадали!");
@@ -271,7 +280,7 @@ public class MyActivity extends Activity implements OnInitListener {
                 updateScore();
             } else {
                 Log.d("onActivityResult", "wrong!");
-                if (currentExplanation >= explanationList.size() - 1) {
+                if (currentExplanation >= explanationList.size() - 1 || currentExplanation >= 5) {
                     makeVisible(R.id.loseGameLayout);
                     makeInvisible(R.id.inGameLayout);
                     TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);

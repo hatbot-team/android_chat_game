@@ -10,13 +10,14 @@
                   android:gravity="center"
                   android:orientation="vertical"
                   android:visibility="visible"
-                  android:id="@+id/startLayout">
-        <Button
-                android:layout_width="wrap_content"
+                  android:id="@+id/startLayout" android:weightSum="1">
+        <ImageButton
+                android:layout_width="112dp"
                 android:layout_height="wrap_content"
                 android:id="@+id/startGameButton"
                 android:onClick="startGame"
-                android:text="Начать игру!"/>
+                android:background="@null"
+                android:src="@drawable/ic_action_play" android:layout_weight="0.14"/>
     </LinearLayout>
     <LinearLayout
             android:orientation="vertical"
@@ -24,13 +25,14 @@
             android:layout_height="fill_parent"
             android:gravity="center"
             android:visibility="invisible"
-            android:id="@+id/inGameLayout">
-        <Button
-                android:layout_width="wrap_content"
+            android:id="@+id/inGameLayout" android:weightSum="1">
+        <ImageButton
+                android:layout_width="112dp"
                 android:layout_height="wrap_content"
-                android:text="Ответить"
+                android:src="@drawable/ic_action_mic"
+                android:background="@null"
                 android:id="@+id/sendUserAnswerButton"
-                android:onClick="sendUserAnswer"/>
+                android:onClick="sendUserAnswer" android:layout_weight="0.14"/>
     </LinearLayout>
     <LinearLayout
             android:orientation="vertical"
@@ -38,13 +40,14 @@
             android:layout_height="fill_parent"
             android:gravity="center"
             android:visibility="invisible"
-            android:id="@+id/loseGameLayout">
-        <Button
-                android:layout_width="wrap_content"
+            android:id="@+id/loseGameLayout" android:weightSum="1">
+        <ImageButton
+                android:layout_width="112dp"
                 android:layout_height="wrap_content"
-                android:text="Еще раз!"
+                android:background="@null"
+                android:src="@drawable/ic_action_replay"
                 android:id="@+id/playAgainButton"
-                android:onClick="restartGame"/>
+                android:onClick="restartGame" android:layout_weight="0.14"/>
     </LinearLayout>
     <LinearLayout
             android:orientation="vertical"
@@ -52,13 +55,14 @@
             android:layout_height="fill_parent"
             android:id="@+id/continueGameLayout"
             android:gravity="center"
-            android:visibility="invisible">
-        <Button
-                android:layout_width="wrap_content"
+            android:visibility="invisible" android:weightSum="1">
+        <ImageButton
+                android:layout_width="112dp"
                 android:layout_height="wrap_content"
-                android:text="Следующее слово"
+                android:src="@drawable/ic_action_next"
+                android:background="@null"
                 android:id="@+id/continueGameButton"
-                android:onClick="continueGame"/>
+                android:onClick="continueGame" android:layout_weight="0.14"/>
     </LinearLayout>
     <TextView
             android:layout_width="wrap_content"
