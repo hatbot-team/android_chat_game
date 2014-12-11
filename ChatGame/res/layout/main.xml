@@ -26,13 +26,31 @@
             android:gravity="center"
             android:visibility="invisible"
             android:id="@+id/inGameLayout" android:weightSum="1">
-        <ImageButton
-                android:layout_width="112dp"
-                android:layout_height="wrap_content"
-                android:src="@drawable/ic_action_mic"
-                android:background="@null"
-                android:id="@+id/sendUserAnswerButton"
-                android:onClick="sendUserAnswer" android:layout_weight="0.14"/>
+        <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="fill_parent"
+                android:layout_height="fill_parent"
+                android:gravity="center">
+            <ImageButton
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    android:src="@drawable/ic_action_previous"
+                    android:id="@+id/repeatExplanation" android:onClick="sayCurrentExplanation"/>
+            <ImageButton
+                    android:layout_width="112dp"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_action_mic"
+                    android:background="@null"
+                    android:id="@+id/sendUserAnswerButton"
+                    android:onClick="sendUserAnswer"/>
+            <ImageButton
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    android:src="@drawable/ic_action_next"
+                    android:id="@+id/nextExplanation" android:onClick="onNextExplanationButtonClick"/>
+        </LinearLayout>
     </LinearLayout>
     <LinearLayout
             android:orientation="vertical"

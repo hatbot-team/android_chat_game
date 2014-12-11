@@ -187,7 +187,7 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
-    public void sayCurrentExplanation()
+    public void sayCurrentExplanation(View v)
     {
         String explanation = explanationList.get(currentExplanation).replace("*", "");
         sayText(explanation);
@@ -253,7 +253,7 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
-    public void onNextExplanationButtonClick()
+    public void onNextExplanationButtonClick(View v)
     {
         giveNextExplanationToUser(false);
     }
@@ -279,7 +279,8 @@ public class MyActivity extends Activity implements OnInitListener {
             {
                 sayText("Прослушайте другое объяснение.");
             }
-            sayCurrentExplanation();
+            String explanation = explanationList.get(currentExplanation).replace("*", "");
+            sayText(explanation);
             return true;
         }
     }
