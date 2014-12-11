@@ -18,7 +18,10 @@ import android.widget.Toast;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -37,12 +40,16 @@ public class MyActivity extends Activity implements OnInitListener {
     private TextToSpeech textToSpeech;
     private String host = "http://hatbot.me/api";
     private String correctWord = "";
+    private int constMaximumExplanations = 5;
     private String randomWord = "/random_word";
-    private List<String> savedChat;
+    private List<JSONObject> savedChat;
+    private String clientAppStr = "android_hatbot";
     private int currentScore;
     private String saveFile = "savefile.txt";
     private int currentExplanation;
     private List<String> explanationList;
+    //private List<Integer> explanationId;
+
 
 
     protected void makeInvisible(int id)
@@ -61,7 +68,7 @@ public class MyActivity extends Activity implements OnInitListener {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        savedChat = new ArrayList<String>();
+        savedChat = new ArrayList<JSONObject>();
         textToSpeech = new TextToSpeech(this, this);
         explanationList = new ArrayList<String>();
         makeInvisible(R.id.scoreTextView);
@@ -143,12 +150,13 @@ public class MyActivity extends Activity implements OnInitListener {
             if (explanationList.size() == 0) {
                 showToast("Сервер недоступен", this.getApplication());
             } else {
-                giveNextExplanationToUser();
+
                 makeVisible(R.id.inGameLayout);
                 makeInvisible(R.id.startLayout);
                 makeVisible(R.id.scoreTextView);
                 currentScore = 0;
                 updateScore();
+                giveNextExplanationToUser(false);
             }
         }
     }
@@ -177,6 +185,12 @@ public class MyActivity extends Activity implements OnInitListener {
                 showToast("Ошибка встроенного распознавателя речи", context);
             }
         }
+    }
+
+    public void sayCurrentExplanation()
+    {
+        String explanation = explanationList.get(currentExplanation).replace("*", "");
+        sayText(explanation);
     }
 
     private void titleTaskExecute()
@@ -210,25 +224,65 @@ public class MyActivity extends Activity implements OnInitListener {
             makeInvisible(R.id.continueGameLayout);
             updateScore();
             titleTaskExecute();
-            giveNextExplanationToUser();
+            giveNextExplanationToUser(false);
         }
     }
 
+    private void addChatEntry(int msecs, String actor, String text)
+    {
+        JSONObject json = new JSONObject();
+        try
+        {
+            json.put("msecs_after_start", 0);
+            json.put("actor", "app");
+            json.put("text", text);
+            savedChat.add(json);
+        }
+        catch (Exception e)
+        {
+            Log.wtf("exceptions", "exception in getChatEntry");
+            Log.d("getChatEntry", "exception in getChatEntry");
+        }
+        savedChat.add(json);
+    }
+
     private void sayText(String text) {
+        addChatEntry(0, "app", text);
         if (textToSpeech != null) {
             textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null);
         }
     }
 
-    private boolean giveNextExplanationToUser() {
-        currentExplanation++;
-        String explanation = explanationList.get(currentExplanation).replace("*", "");
-        savedChat.add(explanation);
-        sayText(explanation);
-        return true;
+    public void onNextExplanationButtonClick()
+    {
+        giveNextExplanationToUser(false);
     }
 
-    //Override method for google speech to text, it works when user says something
+    //returns true if we still have explanations, false otherwise
+    private boolean giveNextExplanationToUser(boolean flagAfterWrongAnswer) {
+        if (flagAfterWrongAnswer)
+            sayText("Неверный ответ.");
+        currentExplanation++;
+        if (outOfExplanations())
+        {
+            if (currentExplanation == 0)
+            {
+                Log.e("giveFirstExplanationToUser", "Error: there are NO explanations!");
+                Log.d("giveFirstExplanationToUser", "Error: there are NO explanations!");
+            }
+            finishGame();
+            return false;
+        }
+        else
+        {
+            if (flagAfterWrongAnswer)
+            {
+                sayText("Прослушайте другое объяснение.");
+            }
+            sayCurrentExplanation();
+            return true;
+        }
+    }
 
     private int getEditDist(String userAnswer, String correctWord)
     {
@@ -261,48 +315,80 @@ public class MyActivity extends Activity implements OnInitListener {
         return (editDist <= Math.min(userAnswer.length(), correctWord.length()) / 3);
     }
 
+    private void sendWordLog()
+    {
+        HttpClient client = new DefaultHttpClient();
+        HttpPost post = new HttpPost(host + "/statistics/update");
+        try {
+            JSONObject holder = new JSONObject();
+            holder.put("entries", savedChat);
+            holder.put("word", correctWord);
+            holder.put("client_app", clientAppStr);
+            StringEntity stringEntity = new StringEntity(holder.toString());
+            post.addHeader("content-type", "application/json");
+            post.setEntity(stringEntity);
+            HttpResponse response = client.execute(post);
+            final String responseEntity = EntityUtils.toString(response.getEntity());
+            Log.d("sendExplanationLog", "response after post execute:" + responseEntity);
+        } catch (Exception e) {
+            Log.wtf("exceptions", "exception in sendWordLog" + e);
+            Log.d("sendWordLog", "exception in sendWordLog" + e);
+        }
+    }
+
+    private void finishGame()
+    {
+        showToast("Загаданное слово: " + correctWord, this);
+        sendWordLog();
+        makeVisible(R.id.loseGameLayout);
+        makeInvisible(R.id.inGameLayout);
+        TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
+        scoreTextView.setText("Итоговый результат: " + String.valueOf(currentScore));
+        String bestScore = getBestScore();
+        if (Integer.parseInt(bestScore) < currentScore) {
+            sayText("Новый рекорд! Загаданное слово - " + correctWord);
+            try {
+                String toWrite = String.valueOf(currentScore);
+                FileOutputStream fos = openFileOutput(saveFile, Context.MODE_PRIVATE);
+                fos.write(toWrite.getBytes());
+                fos.close();
+            } catch (Throwable t) {
+                showToast("Exception: " + t.toString(), this);
+            }
+        } else {
+            sayText("Игра окончена. Загаданное слово - " + correctWord);
+        }
+    }
+
+    private boolean outOfExplanations()
+    {
+        return (currentExplanation >= explanationList.size() || currentExplanation >= constMaximumExplanations);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         final Context context = this;
-        if (requestCode==REQUEST_OK  && resultCode==RESULT_OK) {
+        if (requestCode==REQUEST_OK && resultCode==RESULT_OK) {
             ArrayList<String> userAnswers = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String userAnswer = userAnswers.get(0);
             Log.d("onActivityResult", "userAnswer = " + userAnswer);
-            savedChat.add(userAnswer);
-            showToast("Ваш ответ : " + userAnswer, context);
+
+            addChatEntry(0, "user", userAnswer);
+
             if (checkCorrect(userAnswer, correctWord)) {
+                showToast("Вы ответили верно: " + userAnswer, context);
                 Log.d("onActivityResult", "correct!");
                 sayText("Вы угадали!");
+                sendWordLog();
                 makeVisible(R.id.continueGameLayout);
                 makeInvisible(R.id.inGameLayout);
                 currentScore++;
                 updateScore();
             } else {
+                showToast("Неверный ответ: " + userAnswer, context);
                 Log.d("onActivityResult", "wrong!");
-                if (currentExplanation >= explanationList.size() - 1 || currentExplanation >= 5) {
-                    makeVisible(R.id.loseGameLayout);
-                    makeInvisible(R.id.inGameLayout);
-                    TextView scoreTextView = (TextView)findViewById(R.id.scoreTextView);
-                    scoreTextView.setText("Итоговый результат: " + String.valueOf(currentScore));
-                    String bestScore = getBestScore();
-                    if (Integer.parseInt(bestScore) < currentScore) {
-                        sayText("Новый рекорд! Загаданное слово - " + correctWord);
-                        try {
-                            String toWrite = String.valueOf(currentScore);
-                            FileOutputStream fos = openFileOutput(saveFile, Context.MODE_PRIVATE);
-                            fos.write(toWrite.getBytes());
-                            fos.close();
-                        } catch (Throwable t) {
-                            showToast("Exception: " + t.toString(), context);
-                        }
-                    } else {
-                        sayText("Игра окончена. Загаданное слово - " + correctWord);
-                    }
-                } else {
-                    sayText("Неверный ответ. Прослушайте другое объяснение.");
-                    giveNextExplanationToUser();
-                }
+                giveNextExplanationToUser(true);
             }
         }
     }
