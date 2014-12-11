@@ -224,6 +224,7 @@ public class MyActivity extends Activity implements OnInitListener {
             makeInvisible(R.id.continueGameLayout);
             updateScore();
             titleTaskExecute();
+            savedChat.clear();
             giveNextExplanationToUser(false);
         }
     }
@@ -243,7 +244,6 @@ public class MyActivity extends Activity implements OnInitListener {
             Log.wtf("exceptions", "exception in getChatEntry");
             Log.d("getChatEntry", "exception in getChatEntry");
         }
-        savedChat.add(json);
     }
 
     private void sayText(String text) {
@@ -473,9 +473,6 @@ public class MyActivity extends Activity implements OnInitListener {
             }
             return null;
         }
-
-
-
     }
 
     //This function shows toast messages to user
@@ -485,6 +482,7 @@ public class MyActivity extends Activity implements OnInitListener {
 
             @Override
             public void run() {
+
                 Toast.makeText(context, toast, Toast.LENGTH_SHORT).show();
             }
         });
