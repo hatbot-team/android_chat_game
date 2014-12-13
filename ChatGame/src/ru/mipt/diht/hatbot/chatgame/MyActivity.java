@@ -12,7 +12,6 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.TextToSpeech.OnInitListener;
 import android.util.Log;
 import android.view.View;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.apache.http.HttpResponse;
@@ -25,13 +24,11 @@ import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONStringer;
 
 import java.io.*;
 import java.net.URI;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class MyActivity extends Activity implements OnInitListener {
 
@@ -42,13 +39,12 @@ public class MyActivity extends Activity implements OnInitListener {
     private String correctWord = "";
     private int constMaximumExplanations = 5;
     private String randomWord = "/random_word";
-    private List<JSONObject> savedChat;
+    private JSONArray savedChat;
     private String clientAppStr = "android_hatbot";
     private int currentScore;
     private String saveFile = "savefile.txt";
     private int currentExplanation;
     private List<String> explanationList;
-    //private List<Integer> explanationId;
 
 
 
@@ -62,13 +58,11 @@ public class MyActivity extends Activity implements OnInitListener {
         findViewById(id).setVisibility(View.VISIBLE);
     }
 
-    //Override standard methods
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
-        savedChat = new ArrayList<JSONObject>();
+        savedChat = new JSONArray();
         textToSpeech = new TextToSpeech(this, this);
         explanationList = new ArrayList<String>();
         makeInvisible(R.id.scoreTextView);
@@ -156,6 +150,7 @@ public class MyActivity extends Activity implements OnInitListener {
                 makeVisible(R.id.scoreTextView);
                 currentScore = 0;
                 updateScore();
+                savedChat = new JSONArray();
                 giveNextExplanationToUser(false);
             }
         }
@@ -173,8 +168,6 @@ public class MyActivity extends Activity implements OnInitListener {
         if (internetCheck()) {
             Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, new Locale("ru"));
-            //i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-            //      RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
             i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, new Locale("ru"));
             i.putExtra(RecognizerIntent.EXTRA_PROMPT,
                     "назовите слово");
@@ -224,7 +217,7 @@ public class MyActivity extends Activity implements OnInitListener {
             makeInvisible(R.id.continueGameLayout);
             updateScore();
             titleTaskExecute();
-            savedChat.clear();
+            savedChat = new JSONArray();
             giveNextExplanationToUser(false);
         }
     }
@@ -234,10 +227,11 @@ public class MyActivity extends Activity implements OnInitListener {
         JSONObject json = new JSONObject();
         try
         {
-            json.put("msecs_after_start", 0);
-            json.put("actor", "app");
-            json.put("text", text);
-            savedChat.add(json);
+            json.put("msecs_after_start", msecs);
+            json.put("actor", actor);
+            byte btext[] = text.getBytes("UTF-8");
+            json.put("text", new String(btext, "UTF-8"));
+            savedChat.put(json);
         }
         catch (Exception e)
         {
@@ -258,7 +252,6 @@ public class MyActivity extends Activity implements OnInitListener {
         giveNextExplanationToUser(false);
     }
 
-    //returns true if we still have explanations, false otherwise
     private boolean giveNextExplanationToUser(boolean flagAfterWrongAnswer) {
         if (flagAfterWrongAnswer)
             sayText("Неверный ответ.");
@@ -318,22 +311,32 @@ public class MyActivity extends Activity implements OnInitListener {
 
     private void sendWordLog()
     {
-        HttpClient client = new DefaultHttpClient();
-        HttpPost post = new HttpPost(host + "/statistics/update");
-        try {
-            JSONObject holder = new JSONObject();
-            holder.put("entries", savedChat);
-            holder.put("word", correctWord);
-            holder.put("client_app", clientAppStr);
-            StringEntity stringEntity = new StringEntity(holder.toString());
-            post.addHeader("content-type", "application/json");
-            post.setEntity(stringEntity);
-            HttpResponse response = client.execute(post);
-            final String responseEntity = EntityUtils.toString(response.getEntity());
-            Log.d("sendExplanationLog", "response after post execute:" + responseEntity);
-        } catch (Exception e) {
-            Log.wtf("exceptions", "exception in sendWordLog" + e);
-            Log.d("sendWordLog", "exception in sendWordLog" + e);
+        new RetrieveFeedTask().execute();
+    }
+
+    class RetrieveFeedTask extends AsyncTask<String, Void, Void> {
+
+        protected Void doInBackground(String... urls) {
+            HttpClient client = new DefaultHttpClient();
+            HttpPost post = new HttpPost(host + "/chat_log");
+            try {
+                JSONObject holder = new JSONObject();
+                holder.put("entries", savedChat);
+                holder.put("word", correctWord);
+                holder.put("client_app", clientAppStr);
+                StringEntity stringEntity = new StringEntity(holder.toString(), "UTF-8");
+                post.addHeader("content-type", "application/json");
+                post.addHeader("charset", "utf-8");
+                post.addHeader("accept-charset", "utf-8");
+                post.setEntity(stringEntity);
+                HttpResponse response = client.execute(post);
+                final String responseEntity = EntityUtils.toString(response.getEntity());
+                Log.d("sendExplanationLog", "response after post execute:" + responseEntity);
+            } catch (Exception e) {
+                Log.wtf("exceptions", "exception in sendWordLog" + e);
+                Log.d("sendWordLog", "exception in sendWordLog" + e);
+            }
+            return null;
         }
     }
 
@@ -425,8 +428,6 @@ public class MyActivity extends Activity implements OnInitListener {
         } catch (JSONException e) {
             e.printStackTrace();
         }
-        //super.onPostExecute(result);
-        //do we really need to call super method?
     }
 
     private class TitleTask extends AsyncTask<String, String, String> {
@@ -475,8 +476,6 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
-    //This function shows toast messages to user
-
     public void showToast(final String toast, final Context context) {
         runOnUiThread(new Runnable() {
 
@@ -488,7 +487,6 @@ public class MyActivity extends Activity implements OnInitListener {
         });
     }
 
-    //Internet Check function and class
 
     private boolean internetCheck() {
         ConnectionDetector connectionDetector = new ConnectionDetector(getApplicationContext());
