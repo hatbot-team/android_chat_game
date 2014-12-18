@@ -1,4 +1,4 @@
-package ru.mipt.diht.hatbot.chatgame;
+package ru.mipt.diht.chatgame.hatbot;
 
 import android.app.Activity;
 import android.content.Context;
