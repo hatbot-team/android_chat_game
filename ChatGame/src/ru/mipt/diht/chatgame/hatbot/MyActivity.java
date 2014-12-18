@@ -11,7 +11,11 @@ import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.TextToSpeech.OnInitListener;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import org.apache.http.HttpResponse;
@@ -45,6 +49,7 @@ public class MyActivity extends Activity implements OnInitListener {
     private String saveFile = "savefile.txt";
     private int currentExplanation;
     private List<String> explanationList;
+    private InputMethodManager keyboard;
 
 
 
@@ -66,6 +71,7 @@ public class MyActivity extends Activity implements OnInitListener {
         textToSpeech = new TextToSpeech(this, this);
         explanationList = new ArrayList<String>();
         makeInvisible(R.id.scoreTextView);
+
     }
 
     @Override
@@ -165,6 +171,8 @@ public class MyActivity extends Activity implements OnInitListener {
     }
 
     public void sendUserAnswer(View v) {
+        shutSpeaker();
+
         if (internetCheck()) {
             Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
             i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, new Locale("ru"));
@@ -211,6 +219,39 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
+    private void shutSpeaker()
+    {
+        if (textToSpeech.isSpeaking())
+            textToSpeech.stop();
+    }
+
+    public void onClickKeyboardButton(View view)
+    {
+        shutSpeaker();
+        final EditText answerEditText = (EditText)findViewById(R.id.answerEditText);
+        makeVisible(R.id.answerEditText);
+        keyboard = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
+        keyboard.showSoftInput(answerEditText, InputMethodManager.SHOW_IMPLICIT);
+        answerEditText.setOnEditorActionListener(
+                new EditText.OnEditorActionListener() {
+                    @Override
+                    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                        if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                                actionId == EditorInfo.IME_ACTION_DONE ||
+                                event.getAction() == KeyEvent.ACTION_DOWN &&
+                                        event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+                            String answerText = answerEditText.getText().toString();
+                            Log.d("debug", "onCLickKeyboardButton in edit text " + answerText);
+                            answerProcessing(answerText);
+                            closeTextInput();
+
+                            return true;
+                        }
+                        return false;
+                    }
+                });
+    }
+
     public void continueGame(View v)     {
         if (internetCheck()) {
             makeVisible(R.id.inGameLayout);
@@ -247,8 +288,18 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
+    private void closeTextInput()
+    {
+        EditText answerEditText = (EditText)findViewById(R.id.answerEditText);
+        if (keyboard != null)
+            keyboard.hideSoftInputFromWindow(answerEditText.getWindowToken(), 0);
+        answerEditText.setText("");
+        makeInvisible(R.id.answerEditText);
+    }
+
     public void onNextExplanationButtonClick(View v)
     {
+        closeTextInput();
         giveNextExplanationToUser(false);
     }
 
@@ -369,6 +420,26 @@ public class MyActivity extends Activity implements OnInitListener {
         return (currentExplanation >= explanationList.size() || currentExplanation >= constMaximumExplanations);
     }
 
+    private void answerProcessing(String userAnswer)
+    {
+        Log.d("debug", "answerProcessing userAnswer = " + userAnswer);
+        addChatEntry(0, "user", userAnswer);
+        if (checkCorrect(userAnswer, correctWord)) {
+            showToast("Вы ответили верно: " + correctWord, this);
+            Log.d("debug", "answerProcessing correct!");
+            sayText("Вы угадали!");
+            sendWordLog();
+            makeVisible(R.id.continueGameLayout);
+            makeInvisible(R.id.inGameLayout);
+            currentScore++;
+            updateScore();
+        } else {
+            showToast("Неверный ответ: " + userAnswer, this);
+            Log.d("debug", "answerProcessing wrong!");
+            giveNextExplanationToUser(true);
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -377,23 +448,7 @@ public class MyActivity extends Activity implements OnInitListener {
             ArrayList<String> userAnswers = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String userAnswer = userAnswers.get(0);
             Log.d("onActivityResult", "userAnswer = " + userAnswer);
-
-            addChatEntry(0, "user", userAnswer);
-
-            if (checkCorrect(userAnswer, correctWord)) {
-                showToast("Вы ответили верно: " + userAnswer, context);
-                Log.d("onActivityResult", "correct!");
-                sayText("Вы угадали!");
-                sendWordLog();
-                makeVisible(R.id.continueGameLayout);
-                makeInvisible(R.id.inGameLayout);
-                currentScore++;
-                updateScore();
-            } else {
-                showToast("Неверный ответ: " + userAnswer, context);
-                Log.d("onActivityResult", "wrong!");
-                giveNextExplanationToUser(true);
-            }
+            answerProcessing(userAnswer);
         }
     }
 
