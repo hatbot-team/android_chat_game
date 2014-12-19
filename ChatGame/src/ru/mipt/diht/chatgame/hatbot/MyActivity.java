@@ -227,7 +227,7 @@ public class MyActivity extends Activity implements OnInitListener {
 
     public void onClickKeyboardButton(View view)
     {
-        shutSpeaker();
+        //shutSpeaker();
         final EditText answerEditText = (EditText)findViewById(R.id.answerEditText);
         makeVisible(R.id.answerEditText);
         keyboard = (InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -241,10 +241,13 @@ public class MyActivity extends Activity implements OnInitListener {
                                 event.getAction() == KeyEvent.ACTION_DOWN &&
                                         event.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
                             String answerText = answerEditText.getText().toString();
-                            Log.d("debug", "onCLickKeyboardButton in edit text " + answerText);
-                            answerProcessing(answerText);
-                            closeTextInput();
-
+                            if (answerText.length() != 0)
+                            {
+                                Log.d("debug", "onCLickKeyboardButton in edit text " + answerText);
+                                answerProcessing(answerText);
+                                closeTextInput();
+                            }
+                            else closeTextInput();
                             return true;
                         }
                         return false;
