@@ -26,10 +26,16 @@
             android:gravity="center"
             android:visibility="invisible"
             android:id="@+id/inGameLayout" android:weightSum="1">
+        <EditText
+                android:layout_width="94dp"
+                android:layout_height="wrap_content"
+                android:text="Введите ответ"
+                android:id="@+id/answerEditText"
+                android:visibility="invisible"/>
         <LinearLayout
                 android:orientation="horizontal"
                 android:layout_width="fill_parent"
-                android:layout_height="fill_parent"
+                android:layout_height="78dp"
                 android:gravity="center">
             <ImageButton
                     android:layout_width="wrap_content"
@@ -51,6 +57,13 @@
                     android:src="@drawable/ic_action_next"
                     android:id="@+id/nextExplanation" android:onClick="onNextExplanationButtonClick"/>
         </LinearLayout>
+        <ImageButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@null"
+                android:src="@drawable/ic_action_keyboard"
+                android:id="@+id/keyboardButton"
+                android:onClick="onClickKeyboardButton"/>
     </LinearLayout>
     <LinearLayout
             android:orientation="vertical"
@@ -87,11 +100,5 @@
             android:layout_height="wrap_content"
             android:id="@+id/scoreTextView" android:layout_gravity="center"
             android:textSize="20dp" android:layout_alignParentBottom="true" android:layout_centerHorizontal="true"/>
-    <EditText
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/answerEditText" android:singleLine="true"
-            android:layout_alignParentTop="true" android:layout_centerHorizontal="true"
-            android:layout_gravity="center" android:visibility="invisible"/>
 
 </RelativeLayout>
