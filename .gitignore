@@ -24,3 +24,8 @@ proguard/
 
 # Log Files
 *.log
+
+# local IDE/platform-specific crap
+.idea/
+*.iml
+.DC_Store
