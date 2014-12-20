@@ -28,11 +28,12 @@ import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.json.JSONStringer;
 
 import java.io.*;
 import java.net.URI;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public class MyActivity extends Activity implements OnInitListener {
 
@@ -50,7 +51,7 @@ public class MyActivity extends Activity implements OnInitListener {
     private int currentExplanation;
     private List<String> explanationList;
     private InputMethodManager keyboard;
-
+    private long chatStartTimeMillis;
 
 
     protected void makeInvisible(int id)
@@ -69,7 +70,7 @@ public class MyActivity extends Activity implements OnInitListener {
         setContentView(R.layout.main);
         savedChat = new JSONArray();
         textToSpeech = new TextToSpeech(this, this);
-        explanationList = new ArrayList<String>();
+        explanationList = new ArrayList<>();
         makeInvisible(R.id.scoreTextView);
 
     }
@@ -150,13 +151,13 @@ public class MyActivity extends Activity implements OnInitListener {
             if (explanationList.size() == 0) {
                 showToast("Сервер недоступен", this.getApplication());
             } else {
-
                 makeVisible(R.id.inGameLayout);
                 makeInvisible(R.id.startLayout);
                 makeVisible(R.id.scoreTextView);
                 currentScore = 0;
                 updateScore();
                 savedChat = new JSONArray();
+                chatStartTimeMillis = System.currentTimeMillis();
                 giveNextExplanationToUser(false);
             }
         }
@@ -266,11 +267,12 @@ public class MyActivity extends Activity implements OnInitListener {
         }
     }
 
-    private void addChatEntry(int msecs, String actor, String text)
+    private void addChatEntry(String actor, String text)
     {
         JSONObject json = new JSONObject();
         try
         {
+            long msecs = System.currentTimeMillis() - this.chatStartTimeMillis;
             json.put("msecs_after_start", msecs);
             json.put("actor", actor);
             byte btext[] = text.getBytes("UTF-8");
@@ -285,7 +287,7 @@ public class MyActivity extends Activity implements OnInitListener {
     }
 
     private void sayText(String text) {
-        addChatEntry(0, "app", text);
+        addChatEntry("app", text);
         if (textToSpeech != null) {
             textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null);
         }
@@ -426,7 +428,7 @@ public class MyActivity extends Activity implements OnInitListener {
     private void answerProcessing(String userAnswer)
     {
         Log.d("debug", "answerProcessing userAnswer = " + userAnswer);
-        addChatEntry(0, "user", userAnswer);
+        addChatEntry("player", userAnswer);
         if (checkCorrect(userAnswer, correctWord)) {
             showToast("Вы ответили верно: " + correctWord, this);
             Log.d("debug", "answerProcessing correct!");
@@ -446,7 +448,6 @@ public class MyActivity extends Activity implements OnInitListener {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        final Context context = this;
         if (requestCode==REQUEST_OK && resultCode==RESULT_OK) {
             ArrayList<String> userAnswers = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             String userAnswer = userAnswers.get(0);
@@ -465,8 +466,8 @@ public class MyActivity extends Activity implements OnInitListener {
     private void definitionTaskOnPostExecute(String result) {
         try {
             explanationList.clear();
-            List<String> jsons = new ArrayList<String>();
-            int l = 0, r = 0;
+            List<String> jsons = new ArrayList<>();
+            int l = 0, r;
             for (int i = 0; i < result.length(); i++) {
                 if (result.charAt(i) == '{') {
                     l = i;
